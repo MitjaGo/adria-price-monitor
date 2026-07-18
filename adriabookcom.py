@@ -350,7 +350,7 @@ def render_table(df, key="default"):
             win.document.write("thead{{background:#0058a3;color:white;}}");
             win.document.write("@page{{size:A4 landscape;margin:15mm;}}");
             win.document.write("</style></head><body>");
-            win.document.write("<h3 style='color:#0058a3;margin-bottom:8px;'>Adria Ankaran — Monitor konkurentov</h3>");
+            win.document.write("<h3 style='color:#0058a3;margin-bottom:8px;'>Monitor konkurentov Adria Ankaran na obali </h3>");
             win.document.write(tbl);
             win.document.write("</body></html>");
             win.document.close();
@@ -450,12 +450,13 @@ with st.sidebar:
     )
 
     st.divider()
-    search_btn = st.button("Poišči cene", use_container_width=True)
+    search_btn = st.button("Preveri cene", use_container_width=True)
 
     st.html("""
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
-Hotels — vedno 3 poizvedbe: 2 odrasla · 2 odrasla + 1 otrok (do 10 let)<br> 
+Hotels — vedno 3 poizvedbe: 2 odrasla<br> 
+· 2 odrasla + 1 otrok (do 10 let)<br> 
 · 2 odrasla + 2 otroka (do 10 let)<br>
 Apartments — vedno poizvedbe za 4 odrasle
 </div>
@@ -499,7 +500,7 @@ if not search_btn:
                     {badges}
                 </div>""")
         st.write("")
-    st.info("Vnesi termin, izberi objekte, nato klikni **Poišči cene**.")
+    st.info("Vnesi termin, izberi Hotels ali Apartments, nato klikni **Poišči cene**.")
     st.stop()
 
 # ── Validacija ────────────────────────────────────────────────────────────────
@@ -555,7 +556,7 @@ prog.progress(1.0, text="Končano.")
 time.sleep(0.3)
 prog.empty()
 
-st.caption(f"Živi podatki · Booking.com · {t_label}")
+st.caption(f"Podatki · Booking.com "live stanje" · {t_label}")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 seg_tabs = st.tabs(selected_segments)
