@@ -15,60 +15,30 @@ st.set_page_config(
 
 SHEET_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbx6EnzVBv0ZlRvF6_GuO2ZlCUkrwFp9iR_GmViy5r41hzsexrBW84MdvXI-0DtNul4fEUaLGjx27C/pub"
 
-SHEETS = {
-    "Hotel Convent": {
-        "csv_url":     f"{SHEET_BASE}?gid=0&single=true&output=csv",
-        "description": "Historic convent hotel · Ankaran",
-        "adults":      2,
-    },
-    "Vile brez balkona": {
-        "csv_url":     f"{SHEET_BASE}?gid=1313360174&single=true&output=csv",
-        "description": "Villas without balcony · Ankaran",
-        "adults":      2,
-    },
-    "Vile z balkonom": {
+SEGMENTS = {
+    "Hotels": {
         "csv_url":     f"{SHEET_BASE}?gid=996668368&single=true&output=csv",
         "description": "Villas with balcony · Ankaran",
-        "adults":      2,
+        # Vedno scrapamo vse tri zasedbe za ta objekt — brez opcije filtriranja.
+        # Starosti otrok se prepišejo v sidebarju glede na vnos uporabnika.
+        "occupancies": [
+            {"adults": 2, "ages": [],       "label": "2 odrasla"},
+            {"adults": 2, "ages": [10],     "label": "2 odrasla + 1 otrok"},
+            {"adults": 2, "ages": [10, 10], "label": "2 odrasla + 2 otroka"},
+        ],
     },
-    "Olive Suites": {
-        "csv_url":     f"{SHEET_BASE}?gid=91411090&single=true&output=csv",
-        "description": "Olive Suites · Ankaran",
-        "adults":      2,
-    },
-    "Premium Mobile Homes": {
-        "csv_url":     f"{SHEET_BASE}?gid=1775050597&single=true&output=csv",
-        "description": "Premium Mobile Homes · Ankaran",
-        "adults":      4,
-    },
-    "Adria Apartments": {
+    "Apartments": {
         "csv_url":     f"{SHEET_BASE}?gid=1575590147&single=true&output=csv",
         "description": "Adria Apartments · Ankaran",
-        "adults":      4,
+        "occupancies": [
+            {"adults": 4, "ages": [], "label": "4 odrasli"},
+        ],
     },
 }
 
 FALLBACK_DATA = {
-    "Hotel Convent": [
-        {"hotel": "Hotel Convent",   "type": "self",       "location": "Ankaran",  "url": "https://www.booking.com/hotel/si/convent.sl.html"},
-        {"hotel": "Hotel Riviera",   "type": "competitor", "location": "Portorož", "url": "https://www.booking.com/hotel/si/lifeclass-resort-portoroz-sr.sl.html"},
-        {"hotel": "Hotel Histrion",  "type": "competitor", "location": "Portorož", "url": "https://www.booking.com/hotel/si/histrion.sl.html"},
-        {"hotel": "Hotel Haliaetum", "type": "competitor", "location": "Izola",    "url": "https://www.booking.com/hotel/si/haliaetum.sl.html"},
-        {"hotel": "Hotel Marko",     "type": "competitor", "location": "Portorož", "url": "https://www.booking.com/hotel/si/marko.sl.html"},
-        {"hotel": "Hotel Lucija",    "type": "competitor", "location": "Portorož", "url": "https://www.booking.com/hotel/si/lucija.sl.html"},
-    ],
-    "Vile brez balkona": [
-        {"hotel": "Vile brez Balkona",          "type": "self",       "location": "Ankaran",  "url": "https://www.booking.com/hotel/si/depandansa-bor.sl.html"},
-        {"hotel": "Hotel Vile Park",            "type": "competitor", "location": "Portorož", "url": "https://www.booking.com/hotel/si/vile-park.sl.html"},
-        {"hotel": "Depandanse San Simon",       "type": "competitor", "location": "Izola",    "url": "https://www.booking.com/hotel/si/san-simon-resort-depandances.sl.html"},
-        {"hotel": "Vile Krka Talasso Strunjan", "type": "competitor", "location": "Strunjan", "url": "https://www.booking.com/hotel/si/vile-talaso-strunjan.sl.html"},
-        {"hotel": "Hotel Barbara Fiesa",        "type": "competitor", "location": "Fiesa",    "url": "https://www.booking.com/hotel/si/barbara-fiesa.sl"},
-        {"hotel": "Bio Hotel Koper",            "type": "competitor", "location": "Koper",    "url": "https://www.booking.com/hotel/si/bio.sl.html"},
-    ],
-    "Vile z balkonom":      [],
-    "Olive Suites":         [],
-    "Premium Mobile Homes": [],
-    "Adria Apartments":     [],
+    "Hotels":      [],
+    "Apartments":  [],
 }
 
 APIFY_ACTOR = "voyager~booking-scraper"
@@ -126,7 +96,7 @@ def _get_apify_token():
 @st.cache_data(ttl=300)
 def load_sheet(seg_key):
     try:
-        resp = requests.get(SHEETS[seg_key]["csv_url"], timeout=10)
+        resp = requests.get(SEGMENTS[seg_key]["csv_url"], timeout=10)
         resp.raise_for_status()
         df = pd.read_csv(io.StringIO(resp.text))
         df.columns = [c.strip().lower() for c in df.columns]
@@ -176,14 +146,15 @@ def _extract_price(h):
     return 0.0
 
 
-def _apify_single_run(urls, checkin, checkout, adults, nights, token):
+def _apify_single_run(urls, checkin, checkout, adults, ages, nights, token):
+    """ages: list of child ages (e.g. [10] or [8, 14]); empty list = no children."""
     out = {}
     run_input = {
         "startUrls":                [{"url": u} for u in urls if u.startswith("http")],
         "checkIn":                  checkin.strftime("%Y-%m-%d"),
         "checkOut":                 checkout.strftime("%Y-%m-%d"),
         "adults":                   adults,
-        "children":                 0,
+        "children":                 len(ages),
         "currency":                 "EUR",
         "language":                 "en-gb",
         "maxItems":                 len(urls) * 3,
@@ -193,6 +164,9 @@ def _apify_single_run(urls, checkin, checkout, adults, nights, token):
         "sortBy":                   "price",
         "extractAdditionalHotelData": True,
     }
+    if ages:
+        # Apify actor voyager~booking-scraper prebere childrenAges kot seznam starosti (ena na otroka).
+        run_input["childrenAges"] = list(ages)
     raw = _run_apify(run_input, token, max_items=len(urls) * 5)
     for h in raw:
         if not isinstance(h, dict):
@@ -213,53 +187,61 @@ def _apify_single_run(urls, checkin, checkout, adults, nights, token):
     return out
 
 
-def apify_fetch_all(urls_per_adults, checkin, checkout, token, progress_cb=None):
+def apify_fetch_all(urls_per_occ, checkin, checkout, token, progress_cb=None):
+    """urls_per_occ: dict keyed by (adults, ages_tuple) -> list of urls."""
     nights  = (checkout - checkin).days or 1
     results = {}
-    items   = list(urls_per_adults.items())
-    for i, (adults, urls) in enumerate(items):
+    items   = list(urls_per_occ.items())
+    for i, ((adults, ages), urls) in enumerate(items):
         if not urls:
-            results[adults] = {}
+            results[(adults, ages)] = {}
             continue
+        occ_label = f"{adults} odrasli" + (f" + otroci {list(ages)}" if ages else "")
         if progress_cb:
-            progress_cb(i / len(items), f"Iskanje: {adults} odrasli · {len(urls)} hotelov…")
+            progress_cb(i / len(items), f"Iskanje: {occ_label} · {len(urls)} hotelov…")
         try:
-            results[adults] = _apify_single_run(urls, checkin, checkout, adults, nights, token)
+            results[(adults, ages)] = _apify_single_run(urls, checkin, checkout, adults, ages, nights, token)
         except Exception as e:
-            st.warning(f"Napaka za {adults} odrasle: {e}")
-            results[adults] = {}
+            st.warning(f"Napaka za {occ_label}: {e}")
+            results[(adults, ages)] = {}
     return results
 
 
-def assemble_segment(seg_key, sheet_df, checkin, checkout, adults, batch):
+def assemble_segment(seg_key, sheet_df, checkin, checkout, occupancies, batch_by_occ):
+    """occupancies: list of {"adults", "ages", "label"} dicts for this segment (ages = list of child ages).
+    batch_by_occ: dict keyed by (adults, ages_tuple) -> {url: [variant, ...]}"""
     nights  = (checkout - checkin).days or 1
     results = []
-    for _, row in sheet_df.iterrows():
-        name     = fix_encoding(str(row.get("hotel", "")).strip())
-        is_self  = str(row.get("type", "")).strip().lower() == "self"
-        location = fix_encoding(str(row.get("location", "")).strip())
-        url      = str(row.get("url", "")).strip()
-        variants = batch.get(url, [])
-        if variants:
-            for v in variants:
+    for occ in occupancies:
+        adults, ages, label = occ["adults"], tuple(occ["ages"]), occ["label"]
+        children = len(ages)
+        batch = batch_by_occ.get((adults, ages), {})
+        for _, row in sheet_df.iterrows():
+            name     = fix_encoding(str(row.get("hotel", "")).strip())
+            is_self  = str(row.get("type", "")).strip().lower() == "self"
+            location = fix_encoding(str(row.get("location", "")).strip())
+            url      = str(row.get("url", "")).strip()
+            variants = batch.get(url, [])
+            if variants:
+                for v in variants:
+                    results.append({"name": name, "location": location, "is_self": is_self,
+                                    "adults": adults, "children": children, "occupancy": label,
+                                    "nights": nights, "booking_url": url, "segment": seg_key, **v})
+            else:
                 results.append({"name": name, "location": location, "is_self": is_self,
-                                "adults": adults, "nights": nights,
-                                "booking_url": url, "segment": seg_key, **v})
-        else:
-            results.append({"name": name, "location": location, "is_self": is_self,
-                            "adults": adults, "nights": nights,
-                            "booking_url": url, "segment": seg_key,
-                            "price_eur": None, "per_night": None,
-                            "stars": 0, "rating": 0.0,
-                            "meal_plan": "Ni razpoložljivosti", "source": "error"})
+                                "adults": adults, "children": children, "occupancy": label,
+                                "nights": nights, "booking_url": url, "segment": seg_key,
+                                "price_eur": None, "per_night": None,
+                                "stars": 0, "rating": 0.0,
+                                "meal_plan": "Ni razpoložljivosti", "source": "error"})
     return results
 
 
 def render_table(df, key="default"):
     disp = df[["name", "location", "stars", "rating", "meal_plan",
-               "adults", "nights", "price_eur", "per_night", "is_self", "booking_url"]].copy()
+               "adults", "children", "nights", "price_eur", "per_night", "is_self", "booking_url"]].copy()
     disp.columns = ["Hotel", "Kraj", "Zvezdice", "Ocena", "Vrsta ponudbe",
-                    "Odrasli", "Noči", "Skupaj €", "Na noč €", "Naš hotel", "Link"]
+                    "Odrasli", "Otroci", "Noči", "Skupaj €", "Na noč €", "Naš hotel", "Link"]
     disp = disp.sort_values(["Hotel", "Skupaj €"])
     disp["Zvezdice"]  = disp["Zvezdice"].apply(lambda n: "★" * int(n) if n else "–")
     disp["Naš hotel"] = disp["Naš hotel"].apply(lambda x: "✓" if x else "")
@@ -284,14 +266,14 @@ def render_table(df, key="default"):
         html_rows += f"""<tr>
             <td>{r['Hotel']}</td><td>{r['Kraj']}</td><td>{r['Zvezdice']}</td>
             <td>{r['Ocena']}</td><td>{r['Vrsta ponudbe']}</td>
-            <td>{int(r['Odrasli'])}</td><td>{int(r['Noči'])}</td>
+            <td>{int(r['Odrasli'])}</td><td>{int(r['Otroci'])}</td><td>{int(r['Noči'])}</td>
             <td>{cena}</td><td>{noc}</td><td>{nas}</td>
         </tr>"""
 
     html_table = f"""<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;width:100%;">
         <thead style="background:#0058a3;color:white;">
             <tr><th>Hotel</th><th>Kraj</th><th>Zvezdice</th><th>Ocena</th><th>Vrsta ponudbe</th>
-            <th>Odrasli</th><th>Noči</th><th>Skupaj €</th><th>Na noč €</th><th>Naš hotel</th></tr>
+            <th>Odrasli</th><th>Otroci</th><th>Noči</th><th>Skupaj €</th><th>Na noč €</th><th>Naš hotel</th></tr>
         </thead>
         <tbody>{html_rows}</tbody>
     </table>"""
@@ -357,14 +339,8 @@ def render_table(df, key="default"):
         """, height=40)
 
 
-def render_segment(df, seg_key, t_label):
-    if df is None or df.empty:
-        st.warning("Ni podatkov.")
-        return
-    if not {"name", "is_self", "price_eur"}.issubset(df.columns):
-        st.warning("Napačni stolpci.")
-        return
-
+def render_occupancy_block(df, key):
+    """Renders the metric cards + table for a single occupancy slice of data."""
     df_p     = df[df["price_eur"].notna() & (df["price_eur"] > 0)].copy()
     self_avg = comp_avg = 0.0
     n_comp   = 0
@@ -395,7 +371,29 @@ def render_segment(df, seg_key, t_label):
               str(priciest["name"]) if priciest is not None else "")
 
     st.divider()
-    render_table(df, key=f"{seg_key}_{t_label}")
+    render_table(df, key=key)
+
+
+def render_segment(df, seg_key, t_label):
+    if df is None or df.empty:
+        st.warning("Ni podatkov.")
+        return
+    if not {"name", "is_self", "price_eur", "occupancy"}.issubset(df.columns):
+        st.warning("Napačni stolpci.")
+        return
+
+    occ_labels = list(dict.fromkeys(df["occupancy"]))  # ohrani vrstni red, brez podvajanja
+
+    if len(occ_labels) <= 1:
+        render_occupancy_block(df, key=f"{seg_key}_{t_label}")
+        return
+
+    # Objekt ima več zasedb (npr. Hotels: 2 odrasla / +1 otrok / +2 otroka) — vedno prikaži vse, brez filtra.
+    occ_tabs = st.tabs(occ_labels)
+    for occ_tab, label in zip(occ_tabs, occ_labels):
+        with occ_tab:
+            sub_df = df[df["occupancy"] == label]
+            render_occupancy_block(sub_df, key=f"{seg_key}_{label}_{t_label}")
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -425,10 +423,30 @@ with st.sidebar:
     st.markdown("**Objekt**")
     selected_segments = st.multiselect(
         "Prikaži objekte",
-        options=list(SHEETS.keys()),
+        options=list(SEGMENTS.keys()),
         default=[],
         placeholder="Izberi objekte…",
     )
+
+    if "Hotels" in selected_segments:
+        st.divider()
+        st.markdown("**Starost otrok** _(Hotels)_")
+        child_age_1 = st.number_input(
+            "Otrok #1 — starost (velja za +1 in +2 otroka)",
+            min_value=0, max_value=17, value=10, step=1,
+        )
+        child_age_2 = st.number_input(
+            "Otrok #2 — starost (velja samo za +2 otroka)",
+            min_value=0, max_value=17, value=10, step=1,
+        )
+        SEGMENTS["Hotels"]["occupancies"] = [
+            {"adults": 2, "ages": [],
+             "label": "2 odrasla"},
+            {"adults": 2, "ages": [child_age_1],
+             "label": f"2 odrasla + 1 otrok ({child_age_1} let)"},
+            {"adults": 2, "ages": [child_age_1, child_age_2],
+             "label": f"2 odrasla + 2 otroka ({child_age_1}, {child_age_2} let)"},
+        ]
 
     st.divider()
     search_btn = st.button("Poišči cene", use_container_width=True)
@@ -436,8 +454,8 @@ with st.sidebar:
     st.html("""
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
-2 osebi — Hotel Convent, Vile brez balkona, Vile z balkonom, Olive Suites<br>
-4 osebe — Premium Mobile Homes, Adria Apartments
+Hotels — vedno 3 zasedbe: 2 odrasla · 2 odrasla + 1 otrok · 2 odrasla + 2 otroka<br>
+Apartments — 4 odrasli
 </div>
 """)
     st.html("""
@@ -463,20 +481,22 @@ st.html("""
 
 # ── Welcome ───────────────────────────────────────────────────────────────────
 if not search_btn:
-    n_cols    = min(3, len(SHEETS))
-    seg_items = list(SHEETS.items())
+    n_cols    = min(3, len(SEGMENTS))
+    seg_items = list(SEGMENTS.items())
     for chunk_start in range(0, len(seg_items), n_cols):
         chunk = seg_items[chunk_start:chunk_start + n_cols]
         cols  = st.columns(len(chunk))
         for col, (seg_key, seg) in zip(cols, chunk):
             sheet_df = load_sheet(seg_key)
             n_comp   = len(sheet_df[sheet_df["type"] == "competitor"]) if "type" in sheet_df.columns else "?"
+            badges   = "".join(f'<span class="adults-badge">{o["label"]}</span> '
+                               for o in seg["occupancies"])
             with col:
                 st.html(f"""<div class="metric-card">
                     <h4>{seg_key}</h4>
                     <p>{seg['description']}</p>
                     <p class="n-comp">{n_comp} konkurentov</p>
-                    <span class="adults-badge">{seg['adults']} odrasli</span>
+                    {badges}
                 </div>""")
         st.write("")
     st.info("Vnesi termin, izberi objekte, nato klikni **Poišči cene**.")
@@ -502,28 +522,31 @@ sheets_data = {}
 for seg_key in selected_segments:
     sheets_data[seg_key] = load_sheet(seg_key)
 
-urls_per_adults = defaultdict(list)
+urls_per_occ = defaultdict(list)
 for seg_key in selected_segments:
-    adults = SHEETS[seg_key]["adults"]
-    for _, row in sheets_data[seg_key].iterrows():
-        u = str(row.get("url", "")).strip()
-        if u.startswith("http") and u not in urls_per_adults[adults]:
-            urls_per_adults[adults].append(u)
+    for occ in SEGMENTS[seg_key]["occupancies"]:
+        occ_key = (occ["adults"], tuple(occ["ages"]))
+        for _, row in sheets_data[seg_key].iterrows():
+            u = str(row.get("url", "")).strip()
+            if u.startswith("http") and u not in urls_per_occ[occ_key]:
+                urls_per_occ[occ_key].append(u)
 
-total_hotels = sum(len(v) for v in urls_per_adults.values())
-st.caption(f"{total_hotels} hotelov · {t_label}")
+total_hotels = sum(len(v) for v in urls_per_occ.values())
+st.caption(f"{total_hotels} iskanj hotelov (vse zasedbe skupaj) · {t_label}")
 
 def _progress_cb(pct, msg):
     prog.progress(min(pct * 0.85, 0.85), text=msg)
 
-batch = apify_fetch_all(dict(urls_per_adults), checkin, checkout, token, _progress_cb)
+batch = apify_fetch_all(dict(urls_per_occ), checkin, checkout, token, _progress_cb)
 
 prog.progress(0.9, text="Sestavljam rezultate…")
 all_data = {}
 for seg_key in selected_segments:
-    adults = SHEETS[seg_key]["adults"]
-    rows   = assemble_segment(seg_key, sheets_data[seg_key], checkin, checkout,
-                              adults, batch.get(adults, {}))
+    occupancies  = SEGMENTS[seg_key]["occupancies"]
+    batch_by_occ = {(o["adults"], tuple(o["ages"])): batch.get((o["adults"], tuple(o["ages"])), {})
+                    for o in occupancies}
+    rows = assemble_segment(seg_key, sheets_data[seg_key], checkin, checkout,
+                            occupancies, batch_by_occ)
     df     = pd.DataFrame(rows)
     df["termin"] = t_label
     all_data[seg_key] = df
@@ -537,13 +560,13 @@ st.caption(f"Živi podatki · Booking.com · {t_label}")
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 seg_tabs = st.tabs(selected_segments)
 for tab, seg_key in zip(seg_tabs, selected_segments):
-    seg    = SHEETS[seg_key]
-    adults = seg["adults"]
+    seg          = SEGMENTS[seg_key]
+    occ_pills    = "".join(f'<span class="adults-pill">{o["label"]}</span>' for o in seg["occupancies"])
     with tab:
         st.html(f"""
 <div class="segment-header">
   <b style="font-size:1.05rem;">{seg_key}</b>
-  <span class="adults-pill">{adults} odrasli</span>
+  {occ_pills}
   &nbsp;&nbsp;<span style="font-size:0.8rem;color:#666;">{seg['description']}</span>
 </div>""")
         render_segment(all_data[seg_key], seg_key, t_label)
