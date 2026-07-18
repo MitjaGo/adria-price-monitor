@@ -471,8 +471,8 @@ st.html("""
 <div class="hero-banner">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <div>
-      <h1>Adria Ankaran — Monitor konkurentov</h1>
-      <p>Slovenska obala · Primerjava cen · Booking.com</p>
+      <h1>Adria Ankaran — Monitor konkurentov na obali</h1>
+      <p>Primerjava cen · Booking.com</p>
     </div>
     <img src="https://www.adria-ankaran.si//app/uploads/2025/10/logo-Adria.jpg"
          style="height:105px;width:105px;object-fit:contain;flex-shrink:0;margin-left:2rem;">
@@ -500,7 +500,7 @@ if not search_btn:
                     {badges}
                 </div>""")
         st.write("")
-    st.info("Vnesi termin, izberi Hotels ali Apartments, nato klikni **Poišči cene**.")
+    st.info("Vnesi termin, izberi Hotels ali Apartments, nato klikni **Preveri cene**.")
     st.stop()
 
 # ── Validacija ────────────────────────────────────────────────────────────────
