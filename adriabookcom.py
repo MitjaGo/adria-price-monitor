@@ -456,9 +456,9 @@ with st.sidebar:
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
 Hotels — vedno 3 poizvedbe: 
-· 2 odrasla<br> 
 · 2 odrasla + 1 otrok (do 10 let)<br> 
 · 2 odrasla + 2 otroka (do 10 let)<br>
+· 2 odrasla<br> 
 Apartments — vedno poizvedba za 4 odrasle
 </div>
 """)
