@@ -20,7 +20,7 @@ SEGMENTS = {
         "csv_url":     f"{SHEET_BASE}?gid=996668368&single=true&output=csv",
         "description": "Villas with balcony · Ankaran",
         # Vedno scrapamo vse tri zasedbe za ta objekt — brez opcije filtriranja.
-        # Starosti otrok se prepišejo v sidebarju glede na vnos uporabnika.
+        # Otroci so vedno stari do 10 let, v vseh scenarijih.
         "occupancies": [
             {"adults": 2, "ages": [],       "label": "2 odrasla"},
             {"adults": 2, "ages": [10],     "label": "2 odrasla + 1 otrok"},
@@ -428,26 +428,6 @@ with st.sidebar:
         placeholder="Izberi objekte…",
     )
 
-    if "Hotels" in selected_segments:
-        st.divider()
-        st.markdown("**Starost otrok** _(Hotels)_")
-        child_age_1 = st.number_input(
-            "Otrok #1 — starost (velja za +1 in +2 otroka)",
-            min_value=0, max_value=17, value=10, step=1,
-        )
-        child_age_2 = st.number_input(
-            "Otrok #2 — starost (velja samo za +2 otroka)",
-            min_value=0, max_value=17, value=10, step=1,
-        )
-        SEGMENTS["Hotels"]["occupancies"] = [
-            {"adults": 2, "ages": [],
-             "label": "2 odrasla"},
-            {"adults": 2, "ages": [child_age_1],
-             "label": f"2 odrasla + 1 otrok ({child_age_1} let)"},
-            {"adults": 2, "ages": [child_age_1, child_age_2],
-             "label": f"2 odrasla + 2 otroka ({child_age_1}, {child_age_2} let)"},
-        ]
-
     st.divider()
     search_btn = st.button("Poišči cene", use_container_width=True)
 
@@ -455,6 +435,7 @@ with st.sidebar:
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
 Hotels — vedno 3 zasedbe: 2 odrasla · 2 odrasla + 1 otrok · 2 odrasla + 2 otroka<br>
+(otroci vedno do 10 let)<br>
 Apartments — 4 odrasli
 </div>
 """)
