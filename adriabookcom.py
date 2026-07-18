@@ -556,7 +556,7 @@ prog.progress(1.0, text="Končano.")
 time.sleep(0.3)
 prog.empty()
 
-st.caption(f"Podatki · Booking.com "live stanje" · {t_label}")
+st.caption(f"Podatki · Booking.com 'live stanje' · {t_label}")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 seg_tabs = st.tabs(selected_segments)
