@@ -203,7 +203,7 @@ def _apify_single_run(url_pairs, checkin, checkout, adults, ages, nights, token)
         if matched not in out:
             out[matched] = [{"price_eur": price, "per_night": round(price / nights, 2),
                              "stars": stars, "rating": rating,
-                             "meal_plan": "Najnižja cena", "source": "apify_live"}]
+                             "meal_plan": "Najnižja cena BB ali Rental", "source": "apify_live"}]
     return out
 
 
@@ -459,7 +459,7 @@ Hotels — vedno 3 poizvedbe:
 · 2 odrasla<br> 
 · 2 odrasla + 1 otrok (do 10 let)<br> 
 · 2 odrasla + 2 otroka (do 10 let)<br>
-Apartments — vedno poizvedbe za 4 odrasle
+Apartments — vedno poizvedba za 4 odrasle
 </div>
 """)
     st.html("""
@@ -473,7 +473,7 @@ st.html("""
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <div>
       <h1>Adria Ankaran — Monitor konkurentov na obali</h1>
-      <p>Primerjava cen · Booking.com (Powered by Mitko) </p>
+      <p>Primerjava cen · Booking.com (Made with ❤️ by Mitko) </p>
     </div>
     <img src="https://www.adria-ankaran.si//app/uploads/2025/10/logo-Adria.jpg"
          style="height:105px;width:105px;object-fit:contain;flex-shrink:0;margin-left:2rem;">
