@@ -455,15 +455,13 @@ with st.sidebar:
     st.html("""
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
-Hotels — vedno 3 zasedbe: 2 odrasla · 2 odrasla + 1 otrok (do 10 let)<br> 
+Hotels — vedno 3 poizvedbe: 2 odrasla · 2 odrasla + 1 otrok (do 10 let)<br> 
 · 2 odrasla + 2 otroka (do 10 let)<br>
-Apartments — 4 odrasli
+Apartments — vedno poizvedbe za 4 odrasle
 </div>
 """)
     st.html("""
 <div class="info-box" style="margin-top:0.5rem;">
-<b>Podatki:</b> Seznam konkurentov se nalaga iz tvojega
-<b>Google Sheeta</b>. Dodaj hotel v sheet — app se samodejno posodobi.
 </div>
 """)
 
