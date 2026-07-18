@@ -18,7 +18,7 @@ SHEET_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbx6EnzVBv0ZlRvF6
 SEGMENTS = {
     "Hotels": {
         "csv_url":     f"{SHEET_BASE}?gid=996668368&single=true&output=csv",
-        "description": "Villas with balcony · Ankaran",
+        "description": "Hotels",
         # Vedno scrapamo vse tri zasedbe za ta objekt — brez opcije filtriranja.
         # Otroci so vedno stari do 10 let, v vseh scenarijih.
         "occupancies": [
@@ -29,7 +29,7 @@ SEGMENTS = {
     },
     "Apartments": {
         "csv_url":     f"{SHEET_BASE}?gid=1575590147&single=true&output=csv",
-        "description": "Adria Apartments · Ankaran",
+        "description": "Apartments",
         "occupancies": [
             {"adults": 4, "ages": [], "label": "4 odrasli"},
         ],
@@ -455,8 +455,8 @@ with st.sidebar:
     st.html("""
 <div class="info-box">
 <b>Iskanje gostov:</b><br>
-Hotels — vedno 3 zasedbe: 2 odrasla · 2 odrasla + 1 otrok · 2 odrasla + 2 otroka<br>
-(otroci vedno do 10 let)<br>
+Hotels — vedno 3 zasedbe: 2 odrasla · 2 odrasla + 1 otrok (do 10 let)<br> 
+· 2 odrasla + 2 otroka (do 10 let)<br>
 Apartments — 4 odrasli
 </div>
 """)
