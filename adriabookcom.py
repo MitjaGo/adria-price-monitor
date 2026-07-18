@@ -105,12 +105,34 @@ def load_sheet(seg_key):
         return pd.DataFrame(FALLBACK_DATA.get(seg_key, []))
 
 
-def _match_url(h_url, urls):
-    for u in urls:
-        if "/hotel/" in u:
-            slug = u.split("/hotel/")[1].split(".")[0]
+def _build_occ_url(url, checkin, checkout, adults, ages):
+    """Vgradi zasedbo (odrasli, otroci, starosti) direktno v query string hotelskega URL-ja,
+    enako kot to naredi Booking.com sam (group_adults, group_children, age, checkin, checkout).
+    To je potrebno, ker Apify actor 'adults'/'children' iz vhoda ne uveljavi zanesljivo na
+    direktnih /hotel/... URL-jih (samo na search-style URL-jih)."""
+    from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+    parts = urlsplit(url)
+    q = [(k, v) for k, v in parse_qsl(parts.query) if k not in
+         ("checkin", "checkout", "group_adults", "group_children", "age", "no_rooms")]
+    q += [
+        ("checkin",  checkin.strftime("%Y-%m-%d")),
+        ("checkout", checkout.strftime("%Y-%m-%d")),
+        ("group_adults", str(adults)),
+        ("group_children", str(len(ages))),
+        ("no_rooms", "1"),
+    ]
+    for age in ages:
+        q.append(("age", str(age)))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))
+
+
+def _match_url_pairs(h_url, url_pairs):
+    """url_pairs: list of (raw_url, scrape_url). Vrne raw_url ujemajočega hotela."""
+    for raw_url, scrape_url in url_pairs:
+        if "/hotel/" in scrape_url:
+            slug = scrape_url.split("/hotel/")[1].split(".")[0]
             if slug and slug in h_url:
-                return u
+                return raw_url
     return None
 
 
@@ -146,28 +168,26 @@ def _extract_price(h):
     return 0.0
 
 
-def _apify_single_run(urls, checkin, checkout, adults, ages, nights, token):
-    """ages: list of child ages (e.g. [10] or [8, 14]); empty list = no children."""
+def _apify_single_run(url_pairs, checkin, checkout, adults, ages, nights, token):
+    """url_pairs: list of (raw_url, scrape_url) — scrape_url ima zasedbo vgrajeno v query string."""
     out = {}
+    scrape_urls = [p[1] for p in url_pairs]
     run_input = {
-        "startUrls":                [{"url": u} for u in urls if u.startswith("http")],
+        "startUrls":                [{"url": u} for u in scrape_urls if u.startswith("http")],
         "checkIn":                  checkin.strftime("%Y-%m-%d"),
         "checkOut":                 checkout.strftime("%Y-%m-%d"),
         "adults":                   adults,
         "children":                 len(ages),
         "currency":                 "EUR",
         "language":                 "en-gb",
-        "maxItems":                 len(urls) * 3,
+        "maxItems":                 len(scrape_urls) * 3,
         "minScore":                 "1",
         "minMaxPrice":              "0-999999",
         "flexWindow":               "0",
         "sortBy":                   "price",
         "extractAdditionalHotelData": True,
     }
-    if ages:
-        # Apify actor voyager~booking-scraper prebere childrenAges kot seznam starosti (ena na otroka).
-        run_input["childrenAges"] = list(ages)
-    raw = _run_apify(run_input, token, max_items=len(urls) * 5)
+    raw = _run_apify(run_input, token, max_items=len(scrape_urls) * 5)
     for h in raw:
         if not isinstance(h, dict):
             continue
@@ -177,7 +197,7 @@ def _apify_single_run(urls, checkin, checkout, adults, ages, nights, token):
         rating = float(h.get("reviewScore") or h.get("rating") or 0)
         if price == 0:
             continue
-        matched = _match_url(h_url, urls)
+        matched = _match_url_pairs(h_url, url_pairs)
         if not matched:
             continue
         if matched not in out:
@@ -188,19 +208,20 @@ def _apify_single_run(urls, checkin, checkout, adults, ages, nights, token):
 
 
 def apify_fetch_all(urls_per_occ, checkin, checkout, token, progress_cb=None):
-    """urls_per_occ: dict keyed by (adults, ages_tuple) -> list of urls."""
+    """urls_per_occ: dict keyed by (adults, ages_tuple) -> list of RAW urls (brez query stringa)."""
     nights  = (checkout - checkin).days or 1
     results = {}
     items   = list(urls_per_occ.items())
-    for i, ((adults, ages), urls) in enumerate(items):
-        if not urls:
+    for i, ((adults, ages), raw_urls) in enumerate(items):
+        if not raw_urls:
             results[(adults, ages)] = {}
             continue
+        url_pairs = [(u, _build_occ_url(u, checkin, checkout, adults, ages)) for u in raw_urls]
         occ_label = f"{adults} odrasli" + (f" + otroci {list(ages)}" if ages else "")
         if progress_cb:
-            progress_cb(i / len(items), f"Iskanje: {occ_label} · {len(urls)} hotelov…")
+            progress_cb(i / len(items), f"Iskanje: {occ_label} · {len(raw_urls)} hotelov…")
         try:
-            results[(adults, ages)] = _apify_single_run(urls, checkin, checkout, adults, ages, nights, token)
+            results[(adults, ages)] = _apify_single_run(url_pairs, checkin, checkout, adults, ages, nights, token)
         except Exception as e:
             st.warning(f"Napaka za {occ_label}: {e}")
             results[(adults, ages)] = {}
